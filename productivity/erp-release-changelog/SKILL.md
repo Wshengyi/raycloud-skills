@@ -27,8 +27,8 @@ metadata:
 
 | 用途 | MCP地址 |
 |------|---------|
-| 钉钉文档(adoc) | `https://mcp-gw.dingtalk.com/server/9a926600781309ad7220be14ce7eff4e9e3ab3dab5f9443908014cd63c5ada74?key=621bddfb52255f187a99dfef76118510` |
-| 钉钉表格(axls) | `https://mcp-gw.dingtalk.com/server/551fa0c8bd21f071605cff4af9e9cf17c3f4e01265756cf1a507894e4f46eac2?key=33b9f933888e5e466692b7e64ceab515` |
+| 钉钉文档(adoc) | `https://mcp-gw.dingtalk.com/server/<DINGTALK_DOC_SERVER_ID>?key=<DINGTALK_DOC_KEY>` |
+| 钉钉表格(axls) | `https://mcp-gw.dingtalk.com/server/<DINGTALK_SHEET_SERVER_ID>?key=<DINGTALK_SHEET_KEY>` |
 
 调用方式：HTTP POST，Header 需 `Content-Type: application/json` + `Accept: application/json`，Body 为 JSON-RPC 2.0 格式。
 
@@ -36,11 +36,13 @@ metadata:
 
 | 项目 | ID |
 |------|-----|
-| 知识库（发布日志） | R2PmK2LyEEYO7Xvp |
-| 年度文件夹（2026年度） | XPwkYGxZV3RXE4Q3C9B6q7dRWAgozOKL |
-| 七月文件夹 | YndMj49yWjPvNlg2IRyMAB5lJ3pmz5aA |
-| 发布清单表格 nodeId | XPwkYGxZV3RXE4Q3C22mRnNXWAgozOKL |
-| 发布清单 sheetId（今日发布内容） | kgqie6hm |
+| 知识库（发布日志） | `<WORKSPACE_ID>` |
+| 年度文件夹（2026年度） | `<YEAR_FOLDER_ID>` |
+| 七月文件夹 | `<MONTH_FOLDER_ID>` |
+| 发布清单表格 nodeId | `<CHECKLIST_NODE_ID>` |
+| 发布清单 sheetId（今日发布内容） | `<CHECKLIST_SHEET_ID>` |
+
+> **注意：** 以上 ID 为占位符，实际使用时需替换为真实值。可在 Hermes memory 或 .env 中配置。
 
 ## Workflow
 
@@ -49,7 +51,7 @@ metadata:
 1. 根据当前月份判断目标文件夹
 2. 如果跨月（如八月），先用文档 MCP 的 `create_folder` 在年度文件夹下创建新月份文件夹：
    ```json
-   {"name": "create_folder", "arguments": {"name": "八月", "folderId": "XPwkYGxZV3RXE4Q3C9B6q7dRWAgozOKL", "workspaceId": "R2PmK2LyEEYO7Xvp"}}
+   {"name": "create_folder", "arguments": {"name": "八月", "folderId": "<YEAR_FOLDER_ID>", "workspaceId": "<WORKSPACE_ID>"}}
    ```
 3. 记住新文件夹的 nodeId 供后续使用
 
@@ -60,7 +62,7 @@ metadata:
 用表格 MCP 的 `get_range_as_csv` 读取「今日发布内容」sheet：
 
 ```json
-{"name": "get_range_as_csv", "arguments": {"nodeId": "XPwkYGxZV3RXE4Q3C22mRnNXWAgozOKL", "sheetId": "kgqie6hm", "range": "A1:B100"}}
+{"name": "get_range_as_csv", "arguments": {"nodeId": "<CHECKLIST_NODE_ID>", "sheetId": "<CHECKLIST_SHEET_ID>", "range": "A1:B100"}}
 ```
 
 **完成标准：** 拿到完整的发布清单 CSV 数据。
@@ -94,7 +96,7 @@ metadata:
 用文档 MCP 的 `list_nodes` 列出目标文件夹内容，找到最近一篇发布日志：
 
 ```json
-{"name": "list_nodes", "arguments": {"folderId": "<目标文件夹ID>", "workspaceId": "R2PmK2LyEEYO7Xvp"}}
+{"name": "list_nodes", "arguments": {"folderId": "<MONTH_FOLDER_ID>", "workspaceId": "<WORKSPACE_ID>"}}
 ```
 
 用 `get_document_content` 读取其内容，提取「新功能上线&重要优化」section 中的功能列表用于去重。
@@ -159,8 +161,8 @@ metadata:
   "name": "create_document",
   "arguments": {
     "name": "快递助手ERP_MMDD版本发布",
-    "folderId": "<目标月份文件夹ID>",
-    "workspaceId": "R2PmK2LyEEYO7Xvp",
+    "folderId": "<MONTH_FOLDER_ID>",
+    "workspaceId": "<WORKSPACE_ID>",
     "markdown": "<生成的markdown内容>"
   }
 }
