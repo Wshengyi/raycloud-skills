@@ -20,11 +20,11 @@ metadata:
 ## 环境信息
 
 - **Notion API Key**：存储于 `~/.hermes/.env`，变量名 `NOTION_API_KEY`
-- **Notion 日志结构**：`<顶层工作页面> / 每日工作汇总 / <年度> / <月份> / 每日页面（MM/DD）`
-- **钉钉日志 MCP URL**：`https://mcp-gw.dingtalk.com/server/<SERVER_ID>?key=<DINGTALK_REPORT_MCP_KEY>`
-- **钉钉通讯录 MCP URL**：`https://mcp-gw.dingtalk.com/server/<SERVER_ID>?key=<DINGTALK_CONTACT_MCP_KEY>`
-- **周报模板 ID**：通过 `get_available_report_templates` 查询，选择名为「周报」的模板
-- **领导 userId**：通过 `search_contact_by_key_word` 搜索领导姓名获取
+- **Notion 日志结构**：`工作是生活的价值（ee79ce12）/ 每日工作汇总（89deeb01）/ 2026年度 / 七月（38e278f9）/ 每日页面（MM/DD）`
+- **钉钉日志 MCP URL**：`https://mcp-gw.dingtalk.com/server/06b352673dd66e474bef9d96d6c87dca79e5385ac705309a97f967c9555fd809?key=fb307194ecb65bdbb9d6ff418abe9aa0`
+- **钉钉通讯录 MCP URL**：`https://mcp-gw.dingtalk.com/server/a07bfc7c3a1e20d9a1d0a5c71fa3702d0c1610c9154bc83e2a6188d018654c7f?key=c36e93defae656ab21c970d99b8c89c2`
+- **周报模板 ID**：`14f512c2cc7e86a6f52ec32481aa24da`（模板名：「周报」）
+- **领导 userId**：`yinjie`（长卿-殷杰）
 
 ## 步骤
 
@@ -49,11 +49,11 @@ def notion_get(url):
         return json.loads(r.read())
 ```
 
-- 从顶层工作页面往下导航：年度 → 月份 → 每日页面
+- 先获取当前月份的父页面 ID（七月 = `38e278f9-7966-809d-84b2-e44b4b6a17e9`）
 - 调用 `/blocks/{月份页面ID}/children` 列出所有子页面（格式 `MM/DD`）
 - 筛选出本周日期范围内的页面 ID
 
-> **注意**：跨年跨月时需从「每日工作汇总」页面重新导航到对应年度和月份。
+> **注意**：跨年跨月时需先从 `每日工作汇总` 页面（`89deeb01`）往下导航到对应年度和月份。
 
 ### 3. 读取每日日志内容
 
@@ -81,7 +81,7 @@ def get_daily_log(page_id):
 | 下周工作计划 | 2 | 列举3～5项下周重点 |
 | 需协调与帮助 | 3 | 如无则填「暂无」 |
 
-### 5. 查找接收人 userId
+### 5. 调用钉钉日志 MCP 发送周报
 
 ```python
 def call_dingtalk_mcp(url, method, params):
@@ -91,29 +91,15 @@ def call_dingtalk_mcp(url, method, params):
     with urllib.request.urlopen(req, timeout=30) as r:
         return json.loads(r.read())
 
-CONTACT_MCP = os.environ.get("DINGTALK_CONTACT_MCP_URL", "")
-
-r = call_dingtalk_mcp(CONTACT_MCP, "tools/call", {
-    "name": "search_contact_by_key_word",
-    "arguments": {"keyword": "领导姓名关键词"}
-})
-# 从返回结果中取 userId
-```
-
-> 也可用 `get_current_user_profile` 获取当前用户的直属主管 userId。
-
-### 6. 调用钉钉日志 MCP 发送周报
-
-```python
-REPORT_MCP = os.environ.get("DINGTALK_REPORT_MCP_URL", "")
+REPORT_MCP = "https://mcp-gw.dingtalk.com/server/06b352673dd66e474bef9d96d6c87dca79e5385ac705309a97f967c9555fd809?key=fb307194ecb65bdbb9d6ff418abe9aa0"
 
 result = call_dingtalk_mcp(REPORT_MCP, "tools/call", {
     "name": "create_report",
     "arguments": {
-        "templateId": "<周报模板ID>",
+        "templateId": "14f512c2cc7e86a6f52ec32481aa24da",
         "ddFrom": "hermes-agent",
         "toChat": True,
-        "toUserIds": ["<领导userId>"],
+        "toUserIds": ["yinjie"],
         "contents": [
             {"key":"本周完成工作","sort":"0","type":"1","contentType":"markdown","content": "<本周完成工作内容>"},
             {"key":"本周工作总结","sort":"1","type":"1","contentType":"markdown","content": "<本周工作总结内容>"},
@@ -124,6 +110,20 @@ result = call_dingtalk_mcp(REPORT_MCP, "tools/call", {
 })
 ```
 
+### 6. 查找接收人 userId（如需更换领导）
+
+```python
+CONTACT_MCP = "https://mcp-gw.dingtalk.com/server/a07bfc7c3a1e20d9a1d0a5c71fa3702d0c1610c9154bc83e2a6188d018654c7f?key=c36e93defae656ab21c970d99b8c89c2"
+
+r = call_dingtalk_mcp(CONTACT_MCP, "tools/call", {
+    "name": "search_contact_by_key_word",
+    "arguments": {"keyword": "姓名关键词"}
+})
+# 返回 userId 字段
+```
+
+> 也可用 `get_current_user_profile` 获取当前用户的直属主管 userId。
+
 ## 验证
 
 周报创建成功时返回：
@@ -133,9 +133,28 @@ result = call_dingtalk_mcp(REPORT_MCP, "tools/call", {
 
 ## 陷阱
 
-- Notion API 需确保工作日志页面已共享给 Integration，否则返回 401
+- Notion API 需确保「工作是生活的价值」页面已共享给 Integration，否则返回 401
 - 月份父页面 ID 每月不同，跨月时需从年度页面重新导航
 - 钉钉日志 MCP 的 `create_report` **不支持**推送到群聊，只能推给个人（`toUserIds`）
 - 使用 `python3` 脚本方式调用而非 `curl | python3` 管道，避免 shell 审批拦截
 - MCP URL 中含有 key，属于敏感信息，存入环境变量，不要硬编码或打印到日志
 - `search_user_by_key_word` 工具有时搜不到结果，改用 `search_contact_by_key_word` 更可靠
+
+## 涉及的 MCP 能力
+
+### 钉钉日志 MCP
+
+| 工具 | 说明 |
+|------|------|
+| `get_available_report_templates` | 获取当前员工可用的日志模板列表（含模板 ID、名称） |
+| `get_template_details_by_name` | 获取指定模板的字段详情（field_name、field_sort、field_type） |
+| `create_report` | 创建并发送日志，支持 `toUserIds` 推送给指定人、`toChat` 控制是否发单聊通知 |
+| `get_send_report_list` | 查询当前用户已发送的日志列表（可用于验证发送结果） |
+
+### 钉钉通讯录 MCP
+
+| 工具 | 说明 |
+|------|------|
+| `search_contact_by_key_word` | 按关键词搜索同事，返回 userId、姓名、职位（比 `search_user_by_key_word` 更可靠） |
+| `search_user_by_key_word` | 按关键词搜索组织内成员，返回 userId（有时返回 null，建议优先用上一个） |
+| `get_current_user_profile` | 获取当前登录用户信息，含直属主管 userId（可自动获取领导 ID） |
