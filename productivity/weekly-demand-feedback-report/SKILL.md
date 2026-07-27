@@ -1,235 +1,157 @@
 ---
 name: weekly-demand-feedback-report
-description: "Use when generating weekly demand feedback reports for 快递助手ERP — pulling refund/churn data from 钉钉AI表格 MCP, creating weekly docs, and updating the summary table."
-version: 1.0.0
-author: Hermes Agent
-license: MIT
-metadata:
-  hermes:
-    tags: [erp, dingtalk, ai-sheet, demand-feedback, weekly-report, productivity]
-    related_skills: [dingtalk-alidocs-browser, erp-weekly-progress-report]
+description: "每周需求反馈情况整理：从钉钉AI表格提取退款需求，写入钉钉文档，更新汇总表。"
+triggers:
+  - 每周需求反馈
+  - 需求催促反馈表
+  - 七月第几周
+  - 退款需求整理
+  - 汇总表更新
 ---
 
-# 每周需求反馈情况报告
+# 每周需求反馈情况整理
 
-## Overview
+## 数据来源
 
-从钉钉 AI 表格（售后催促表 + 销售催促表）拉取上周含"马上退款"的需求记录，生成每周需求反馈文档并发布到钉钉文档知识库，同时更新汇总表的三个模块（重点汇总/售后反馈/销售反馈）。
+| 表格 | baseId | tableId | 说明 |
+|---|---|---|---|
+| 售后催促需求汇总 | `YMyQA2dXW793dgQZTkKoXBpeJzlwrZgb` | `QiDEMvH` | 需求催促反馈表 |
+| 销售需求反馈汇总 | `a9E05BDRVQ6L3R7yHppgglx4J63zgkYA` | `QiDEMvH` | 需求催促反馈表 |
 
-## When to Use
+- **AI 表格 MCP URL**: `https://mcp-gw.dingtalk.com/server/ba474d5a514786fb296b3a1bb0159e92be15047a63f3a19c93fd30efbacb0ee1?key=e3fad2589bf15f36c0e50774467ea0f9`
+- **钉钉文档 MCP URL**: `https://mcp-gw.dingtalk.com/server/9a926600781309ad7220be14ce7eff4e9e3ab3dab5f9443908014cd63c5ada74?key=621bddfb52255f187a99dfef76118510`
+- **知识库**: `R2PmK290kQOywXvp`（快递助手erp业务组）
+- **每周需求反馈情况文件夹**: 路径：用户分析 → 需求分析 → 每周需求反馈情况 → 月份文件夹
+  - 七月文件夹 folderId: `jb9Y4gmKWr7lmxrah4Z7Eg5aVGXn6lpz`
+- **汇总表 nodeId**: `ZgpG2NdyVXrOqRxzHAbD7knY8MwvDqPk`
 
-- 每周一需要整理上一周的需求反馈情况
-- 用户要求生成"每周需求反馈"或"退款需求汇总"
-- 需要更新汇总表中的售后/销售反馈数据
+## 字段说明（两张表相同字段名，options 略有差异）
 
-## 数据源
+| fieldId | 字段名 | 类型 |
+|---|---|---|
+| `AJfe8sL` | 需求名称 | text |
+| `FTJcv6C` | 需求链接（TB链接） | url |
+| `cSIqHZz` | 反馈时间 | date |
+| `yBiZkVE` | 需求类型 | multipleSelect |
+| `GHsMWDx` | 催促商家手机号 | text |
+| `TTyRnwe` | 催促背景 | text |
+| `xmJTQac` | 评估结论（含原因） | text |
+| `sSyp8L0` | 需求回复结果 | singleSelect |
+| `E7mOs0L` | 模块 | singleSelect |
+| `1VYxIRE` | 催促人员 | user |
 
-### 钉钉 AI 表格 MCP（streamable-http）
+售后表需求类型 options（name→optionId）：
+- 催促 → `xKHsk1t5Zr`
+- 多次催促 → `Mq8Jv2t15w`
+- 新增反馈商家 → `PlFboeEJsv`
+- 不再续费 → `988hyxhLBw`
+- 马上退款 → `A8SupYrGQr`
+- 产生资损 → `wlCKtiY0Cy`
 
-- **售后催促表**：baseId=`<售后BASE_ID>`，tableId=`QiDEMvH`
-- **销售催促表**：baseId=`<销售BASE_ID>`，tableId=`QiDEMvH`
+## 每周整理步骤
 
-### 关键字段（两表结构一致）
+### 第一步：获取当周退款需求（写入周文档）
 
-| fieldId | 字段名 | 类型 | 说明 |
-|---------|--------|------|------|
-| AJfe8sL | 需求名称 | text | |
-| FTJcv6C | 需求链接（TB链接）| url | |
-| 1VYxIRE | 催促人员 | user | |
-| fToPCon | 问题类型 | singleSelect | 需求/线上问题&优化 |
-| xmJTQac | 评估结论（含原因）| text | |
-| yBiZkVE | 需求类型 | multipleSelect | 催促/多次催促/新增反馈商家/不再续费/马上退款/产生资损 |
-| GHsMWDx | 催促商家手机号 | text | |
-| TTyRnwe | 催促背景 | text | |
-| cSIqHZz | 反馈时间 | date | |
-| E7mOs0L | 模块 | singleSelect | |
-| sSyp8L0 | 需求回复结果 | singleSelect | |
+筛选条件：**反馈时间 = 上周** + **需求类型包含"马上退款"**
 
-### 需求类型 option ID（售后表）
+⚠️ **API 关键坑**：`query_records` 的 `filters`、`sort` 实测均不生效，只返回默认前100条。**必须用 `keyword` 搜索绕过**：
 
-| 名称 | optionId |
-|------|----------|
-| 催促 | xKHsk1t5Zr |
-| 多次催促 | Mq8Jv2t15w |
-| 新增反馈商家 | PlFboeEJsv |
-| 不再续费 | 988hyxhLBw |
-| 马上退款 | A8SupYrGQr |
-| 产生资损 | wlCKtiY0Cy |
-
-## 执行流程
-
-### 第一步：获取退款需求数据
-
-用 `query_records` + `keyword:"马上退款"` 搜索两张表，然后在本地按日期过滤上周（周一至周日）的记录。
-
-```bash
-# 售后表
-curl -s -X POST "$AI_SHEET_MCP" \
-  -H "Content-Type: application/json" -H "Accept: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_records","arguments":{
-    "baseId":"<售后BASE_ID>","tableId":"QiDEMvH","limit":100,"keyword":"马上退款"
-  }}}'
-
-# 销售表
-curl -s -X POST "$AI_SHEET_MCP" \
-  -H "Content-Type: application/json" -H "Accept: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_records","arguments":{
-    "baseId":"<销售BASE_ID>","tableId":"QiDEMvH","limit":100,"keyword":"马上退款"
-  }}}'
+```python
+# 用 keyword="马上退款" 搜索，本地按日期过滤
+records = query_by_keyword(base_id, table_id, "马上退款")
+week_records = [r for r in records if start_date <= parse_date(r) <= end_date]
 ```
 
-本地过滤逻辑：
-1. 解析 `cSIqHZz`（ISO 8601 日期）
-2. 筛选 date ∈ [上周一, 上周日]
-3. 确认 `yBiZkVE` 数组中含 `name:"马上退款"`
+- 售后表 → 写入"售后反馈"章节
+- 销售表 → 写入"销售反馈"章节（上周无数据则写"暂无"）
 
-### 第二步：去重整理
+### 第二步：创建周文档
 
-按 TB 链接（`FTJcv6C.link`）去重。同一需求多次催促时：
-- 时间线合并为多条
-- 保留最新的催促背景
-- 取最新的评估结论/回复结果
-
-### 第三步：创建每周文档
-
-在知识库的"每周需求反馈情况 > 七月"文件夹下创建文档。
-
-**文档格式模板：**
-
-```markdown
-7月第N周：2026年MM月DD日 - 2026年MM月DD日
-
-# **售后反馈**
-
-:::
-**退款需求明细**
-
-## 一、需求名称【讨论结果：回复结果】
-
-**对应tb：**
-
-[TB链接](TB链接)
-
-**反馈商家：**
-
-手机号
-
-**时间线：**
-- YYYY.MM.DD 催促背景描述
-
-**承诺情况**：未承诺
-
-**商家场景：**
-
-场景描述
-
-**反馈截图：**
-
-**其他需求：**暂无
-:::
-
-# **销售反馈**
-
-:::
-**退款需求明细**
-
-## **暂无**
-:::
-
-# **工单新增**
-
-| 来源（上周） | 需产品介入工单 | 线上问题 | 线上优化 | 技术优化 |
-|---|---|---|---|---|
-| 工单系统（N月第N周） |  |  |  |  |
+```python
+# 创建文档
+create_document(workspaceId="R2PmK290kQOywXvp", folderId="<月份folderId>", name="X月第Y周", content=md)
 ```
 
-**注意事项：**
-- 标题格式为 `## 一、需求名` —— 不要加多余的 `**` 包裹
-- 售后无退款需求时写 `## **暂无**`
-- 销售无退款需求时同样写 `## **暂无**`
-- 工单数据留空，由用户手动补充
+**文档格式要点**：
+- 标题行：`X月第Y周：起止日期`（无 H1）
+- 章节标题：`# **售后反馈**` / `# **销售反馈**` / `# **工单新增**`
+- 需求编号标题：`## 一、需求名称【讨论结果：xxx】`（不要用 `## **一、**` 格式，多余的 `**` 很难看）
+- 内含 `:::` callout 块包裹退款明细
+
+### 第三步：统计数量（用于汇总表）
+
+获取全量上周数据需要对**每个类型关键词**分别 keyword 搜索，再取 recordId 并集：
+
+```python
+ALL_KEYWORDS = ["催促", "多次催促", "新增反馈商家", "不再续费", "马上退款", "产生资损"]
+all_week = {}
+for kw in ALL_KEYWORDS:
+    for r in query_by_keyword(base_id, table_id, kw):
+        if is_last_week(r):
+            all_week[r["recordId"]] = r["cells"]
+total = len(all_week)
+```
+
+⚠️ **注意**：即使这样也可能不全（如果存在不含任何上述关键词的记录）。建议与用户确认总数后再计算比例。
+
+统计各类型：
+```python
+def count_type(tag):
+    return sum(1 for c in all_week.values()
+               if tag in [t["name"] for t in c.get("yBiZkVE", [])])
+```
+
+### 第三步（补充）：向用户确认无法通过 API 获取的数据
+
+以下数据 API 无法准确获取，**必须请用户在 AI 表格页面手动筛选后提供**：
+
+| 数据项 | 原因 |
+|--------|------|
+| 售后表上周**总记录数** | API 无法全量分页，只返回100条 |
+| 售后表上周**多次催促**数量 | 全年记录远超100条，keyword搜索覆盖不全 |
+| 售后表上周**催促**数量 | 同上 |
+| **工单数据** | 来自工单系统，用户自己填写 |
+
+以下数据 API 可准确获取（全年记录少，keyword 100条够覆盖）：
+- 马上退款（售后+销售）、不再续费（售后+销售）、产生资损（售后）、签单卡点（销售）
 
 ### 第四步：更新汇总表
 
-汇总表 nodeId=`<汇总表NODE_ID>`，包含三个表格模块。
+汇总表 nodeId: `ZgpG2NdyVXrOqRxzHAbD7knY8MwvDqPk`
 
-**⚠️ 关键限制：禁止使用 overwrite 模式覆写汇总表全文！** overwrite 会破坏表头的单元格背景色格式。只能使用 **append** 模式追加新行。
+⚠️ **禁止对汇总表使用 overwrite 全文**：会破坏表头单元格背景色（API写入的background-color渲染为文字高亮色，不可逆）。
 
-#### 模块1：重点需求反馈汇总
+**正确做法**：读取文档 → 找到上周行后面插入新行 → 分段写回
 
-| 时间 | 签单需求 | 退款需求 | 续费需求 | 需求合计 |
-|------|----------|----------|----------|----------|
+```python
+# 获取当前文档
+md = get_document_content(nodeId)
 
-- 签单需求 = 销售表上周含"签单卡点"的记录数
-- 退款需求 = 售后表"马上退款" + 销售表"马上退款"
-- 续费需求 = 售后表"不再续费" + 销售表"不再续费"
-- 合计 = 三者之和
+# 在各表末行后拼接新行
+old = "| 上周行内容 |"
+new = old + "\n| 本周行内容 |"
+md = md.replace(old, new, 1)
 
-#### 模块2：售后反馈
+# 分两段写回（文档超 10000 字符限制）
+split_idx = md.index("\n# **销售反馈**")
+part1, part2 = md[:split_idx], md[split_idx:]
+update_document(nodeId, part1, mode="overwrite")   # 前半段（含售后表头）
+update_document(nodeId, part2, mode="append")       # 后半段
+```
 
-| 来源 | 总需求 | 资损需求 | 退款需求 | 续费需求 | 多次催促需求 | 催促需求 |
+各表新行格式：
+1. **重点需求反馈汇总**：`| 月份第X周 | 签单 | 退款 | 续费 | 合计 |`
+   - 签单 = 销售表"签单卡点"数
+   - 退款 = 售后"马上退款" + 销售"马上退款"
+   - 续费 = 售后"不再续费" + 销售"不再续费"
+2. **售后反馈**：`| [周文档](url) | 总数 | 资损(%) | 退款(%) | 续费(%) | 多催(%) | 催促(%) |`
+3. **销售反馈**：`| [周文档](url) |  | 签单(%) | 退款(%) | 0 | 续费(%) | 多催(%) |`（总沟通人数留空）
 
-- 来源：`[七月第N周](文档链接)`
-- 总需求：售后表上周所有记录数（需用户提供）
-- 各类型：数量（占比%）
+## 常见坑
 
-#### 模块3：销售反馈
-
-| 来源 | 总沟通人数 | 签单需求 | 退款需求 | 资损需求 | 续费需求 | 多次催促需求 |
-
-- 总沟通人数：留空
-- 各类型统计逻辑同上
-
-## API 限制与应对
-
-### 钉钉 AI 表格 query_records 限制
-
-1. **每次最多返回100条** —— 无法获取全量数据
-2. **sort 参数不生效** —— 无法按日期排序
-3. **filters 参数不生效** —— 无法服务端过滤
-4. **keyword 搜索只匹配文本/选项字段** —— 日期字段无法搜索
-
-### 应对策略
-
-- **低频类型**（马上退款/不再续费/产生资损）：keyword 搜索 + 本地日期过滤，100条足够覆盖
-- **高频类型**（催促/多次催促/新增反馈商家）：100条不够覆盖全年数据，**必须向用户确认准确数字**
-- **总记录数**：API 无法获取，**必须向用户确认**
-
-### 何时需要向用户确认
-
-生成汇总表时，以下数字需要用户在 AI 表格页面手动筛选后提供：
-- 售后表上周总记录数
-- 售后表上周"多次催促"数量
-- 售后表上周"催促"数量
-
-## 钉钉文档 MCP 注意事项
-
-- 创建文档用 `create_document`，参数：`workspaceId` + `folderId` + `name` + `content`
-- 更新文档用 `update_document`，参数：`nodeId` + `markdown` + `mode`（overwrite/append）
-- markdown 内容最大 10000 字符，超过需分块 append
-- **汇总表禁止 overwrite**（破坏表头背景色），只用 append
-
-## Common Pitfalls
-
-1. **overwrite 汇总表导致表头样式丢失** —— 钉钉文档 API 写入的 `background-color` 会被渲染为"文本突出显示色"而非"单元格背景色"。一旦 overwrite，表头格式不可逆地损坏。只用 append。
-
-2. **query_records 返回100条以为是全量** —— API 不返回 hasMore=true（即使有更多数据），容易误以为数据完整。对高频类型必须向用户确认。
-
-3. **标题格式写成 `## **一、**内容`** —— 照搬原文档的 span 标签后，`**` 变成孤立粗体符号。正确写法是 `## 一、内容`。
-
-4. **keyword 搜日期** —— `keyword:"2026-07-22"` 不匹配日期字段，只匹配文本字段中含该字符串的记录。
-
-5. **同一需求多次催促未合并** —— 按 TB 链接去重，时间线合并展示多次催促的背景。
-
-6. **销售表的需求类型名称不同** —— 销售表用"签单卡点""商家催促""商家反馈"等，与售后表不完全一致。
-
-## Verification Checklist
-
-- [ ] 售后表 keyword:"马上退款" 结果已按日期过滤
-- [ ] 销售表 keyword:"马上退款" 结果已按日期过滤
-- [ ] 同一 TB 链接的多条记录已合并
-- [ ] 文档标题格式正确（`## 一、内容`，无多余`**`）
-- [ ] 文档已创建在正确的文件夹下
-- [ ] 汇总表未使用 overwrite 模式
-- [ ] 高频类型数据（催促/多次催促/总数）已向用户确认
-- [ ] 重点汇总的退款/续费数为两表合计
+1. **汇总表 overwrite 破坏表头** — 一旦 overwrite，表头单元格背景色丢失需用户手动恢复
+2. **`**其他需求：**暂无` 被转义** — 写入后 `**` 变成 `\*\*`，需检查并 replace 修复
+3. **需求编号标题** — 用 `## 一、需求名称`，不要用 `## **一、**需求名称`
+4. **工单表头背景色** — API 新建文档时无法还原橙色背景，需用户手动调
+5. **同一需求多次催促** — 按 TB 链接去重，时间线合并多条
+6. **keyword 不匹配日期** — 不能用日期字符串搜索，只匹配文本/选项字段
