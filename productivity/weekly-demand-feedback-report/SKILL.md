@@ -18,8 +18,8 @@ triggers:
 | 售后催促需求汇总 | `YMyQA2dXW793dgQZTkKoXBpeJzlwrZgb` | `QiDEMvH` | 需求催促反馈表 |
 | 销售需求反馈汇总 | `a9E05BDRVQ6L3R7yHppgglx4J63zgkYA` | `QiDEMvH` | 需求催促反馈表 |
 
-- **AI 表格 MCP URL**: `https://mcp-gw.dingtalk.com/server/ba474d5a514786fb296b3a1bb0159e92be15047a63f3a19c93fd30efbacb0ee1?key=e3fad2589bf15f36c0e50774467ea0f9`
-- **钉钉文档 MCP URL**: `https://mcp-gw.dingtalk.com/server/9a926600781309ad7220be14ce7eff4e9e3ab3dab5f9443908014cd63c5ada74?key=621bddfb52255f187a99dfef76118510`
+- **AI 表格 MCP URL**: `https://mcp-gw.dingtalk.com/server/<AI_SHEET_TOKEN>?key=<AI_SHEET_KEY>`
+- **钉钉文档 MCP URL**: `https://mcp-gw.dingtalk.com/server/<DOC_TOKEN>?key=<DOC_KEY>`
 - **知识库**: `R2PmK290kQOywXvp`（快递助手erp业务组）
 - **每周需求反馈情况文件夹**: 路径：用户分析 → 需求分析 → 每周需求反馈情况 → 月份文件夹
   - 七月文件夹 folderId: `jb9Y4gmKWr7lmxrah4Z7Eg5aVGXn6lpz`
