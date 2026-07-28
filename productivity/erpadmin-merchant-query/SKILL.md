@@ -26,6 +26,16 @@ erpadmin.kuaidizs.cn 是快递助手的内部商家运营管理后台，可以�
 - 批量查询多个商家的运营数据
 - 验证需求池中商家的活跃度和使用情况
 
+## 用户需要提供的信息
+
+**每次新会话只需提供一次：**
+
+> 在已登录的 erpadmin.kuaidizs.cn 页面，按 F12 打开 DevTools → Network 标签 → 随便点击一个 API 请求 → 右键 → **Copy → Copy as cURL** → 发给 Hermes。
+
+原因：认证有两层（SSO cookie + JWT），两者都会过期且无法从外部预判有效期，必须由用户从浏览器活跃 session 中提取。browser_cookie3 因 Chrome 锁库问题不可靠，DevTools Copy as cURL 是唯一可靠方式。
+
+---
+
 ## 认证方式
 
 ### 获取凭证
