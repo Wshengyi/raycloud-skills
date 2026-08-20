@@ -1,0 +1,29 @@
+{
+  "lead_time_days": 5,
+  "review_cycle_days": 1,
+  "safety_days": 3,
+  "min_q7": 14,
+  "items": [
+    {
+      "sysItemId": "DEMO_ITEM",
+      "sysSkuId": "DEMO_SKU",
+      "name": "示例防晒衣/白色XL",
+      "q1": 48,
+      "q3": 120,
+      "q7": 238,
+      "qprev7": 112,
+      "available_stock": 90,
+      "in_transit_stock": 80,
+      "is_top10": true,
+      "stock_match_unique": true,
+      "data_complete": true,
+      "order_scope_verified": true,
+      "platform_scope_complete": true,
+      "in_transit_consistent": true,
+      "in_transit_eta_verified": true,
+      "event_driven": false,
+      "purchase_context_verified": false,
+      "idempotency_ready": false
+    }
+  ]
+}

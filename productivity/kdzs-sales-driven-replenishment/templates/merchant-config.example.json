@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "merchant_name": "<商家名称>",
+  "environment": "production",
+  "timezone": "Asia/Shanghai",
+  "lead_time_days": 3,
+  "review_cycle_days": 1,
+  "safety_days": 3,
+  "min_q7": 14,
+  "absolute_daily_threshold": 100,
+  "new_product_q3_threshold": 6,
+  "recommendation_ttl_minutes": 60,
+  "excluded_keywords": [
+    "测试",
+    "勿动",
+    "赠品",
+    "虚拟",
+    "定金",
+    "补差价",
+    "运费",
+    "清仓"
+  ],
+  "credentials": {
+    "appKey": "<在安全配置中提供，不要提交到Skill包>",
+    "appSecret": "<在安全配置中提供，不要提交到Skill包>"
+  }
+}
