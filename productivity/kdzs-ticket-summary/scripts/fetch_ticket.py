@@ -48,6 +48,34 @@ def get_json(
     return data
 
 
+def post_json(
+    session: requests.Session,
+    headers: dict[str, str],
+    endpoint: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    response = session.post(
+        f"{BASE_URL}{endpoint}", headers=headers, json=payload, timeout=30
+    )
+    response.raise_for_status()
+    data = response.json()
+    if data.get("code") != 200:
+        raise RuntimeError(f"Ticket API error: {data.get('msg', 'unknown error')}")
+    return data
+
+
+def decode_account(
+    session: requests.Session, headers: dict[str, str], account_encode: str
+) -> str:
+    decoded = post_json(
+        session, headers, "/ticket/decodeAccount", {"accountEncode": account_encode}
+    )
+    account = decoded.get("data", {}).get("accountDecode")
+    if not account:
+        raise RuntimeError("Ticket API returned no decoded merchant phone")
+    return str(account)
+
+
 def fetch_ticket(ticket_id: str) -> dict[str, Any]:
     if not ticket_id.isdigit():
         raise ValueError("ticket_id must contain digits only")
@@ -61,7 +89,14 @@ def fetch_ticket(ticket_id: str) -> dict[str, Any]:
     if len(records.get("rows", [])) != records.get("total", 0):
         raise RuntimeError("Ticket records are incomplete")
 
-    return {"ticket": ticket, "records": records}
+    ticket_row = ticket["rows"][0]
+    account_encode = ticket_row.get("accountEncode")
+    merchant_phone = (
+        decode_account(session, headers, str(account_encode))
+        if account_encode
+        else "未提供"
+    )
+    return {"ticket": ticket, "records": records, "merchantPhone": merchant_phone}
 
 
 def main() -> None:

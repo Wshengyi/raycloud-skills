@@ -67,10 +67,12 @@ terminal(command="python3 productivity/kdzs-ticket-summary/scripts/fetch_ticket.
 
 必须同时读取：
 
-- 基本信息：标题、描述、商家 ID、模块、平台、状态、关联 TB。
+- 基本信息：标题、描述、商家手机号、模块、平台、状态、关联 TB。
 - 完整记录：评论、排查结论、日志摘要、人员转交与处理结果。
 
-**完成标准：** 基本信息查询返回一条工单，处理记录数量与接口返回的 `total` 一致。
+脚本会使用工单的 `accountEncode` 调用 `POST /ticket/decodeAccount` 解密商家手机号，并返回 `merchantPhone`。手机号仅用于本次工单总结；不得写入长期记忆、日志或 Git 提交，且不得提交含完整手机号的临时原始工单 JSON。
+
+**完成标准：** 基本信息查询返回一条工单，处理记录数量与接口返回的 `total` 一致；若工单有 `accountEncode`，则已获取 `merchantPhone`，否则明确标记为“未提供”。
 
 ### 3. 识别涉及技术
 
@@ -144,8 +146,8 @@ terminal(command="python3 productivity/kdzs-ticket-summary/scripts/fetch_ticket.
 ```markdown
 ## 工单总结
 
-### 反馈商家ID
-`<userId 或未提供>`
+### 商家手机号
+`<merchantPhone 或未提供>`
 
 ### 涉及技术
 <姓名1>、<姓名2>
@@ -175,24 +177,24 @@ terminal(command="python3 productivity/kdzs-ticket-summary/scripts/fetch_ticket.
 
 ## Pitfalls
 
-1. **把手机号当商家 ID：** 商家 ID 取基本信息的 `userId`，不要使用脱敏的 `account`。
+1. **未解密手机号：** 商家手机号必须取工单 `accountEncode` 调用 `POST /ticket/decodeAccount` 后返回的 `data.accountDecode`；不得使用脱敏 `account`，也不得将 `userId` 作为手机号。
 2. **技术人员识别过宽：** 纯转交、同步和产品接收人员不计入“涉及技术”。
 3. **标题过于技术化：** 字段名和代码根因放在“问题核心”，TB 任务名称只描述业务问题。
 4. **猜测复现链路：** 工单没有证据时留空，不要补写看似合理的步骤。
 5. **忽略历史结论变化：** 以完整记录中的最终定位为准，保留从假设到结论的关键变化。
-6. **泄露认证信息：** 不输出 Cookie、Token 或 Authorization 请求头，不将原始工单 JSON 提交到 Git。
-7. **误执行写操作：** 只允许 GET 查询；禁止回复、转交、催办、结单或更新状态。
+6. **隐私和认证信息泄露：** 不输出 Cookie、Token 或 Authorization 请求头；不将完整手机号或含完整手机号的原始工单 JSON 提交到 Git；手机号只用于当前工单总结。
+7. **误执行写操作：** 仅读取接口；禁止回复、转交、催办、结单或更新状态。
 
 ## Verification
 
 输出前逐项检查：
 
 - [ ] 基本信息与全部处理记录均已读取。
-- [ ] 商家 ID 来自 `userId`。
+- [ ] 商家手机号来自 `POST /ticket/decodeAccount` 返回的 `data.accountDecode`；未使用脱敏 `account` 或 `userId` 替代。
 - [ ] 涉及技术仅含真实参与排查和定位的技术人员。
 - [ ] 排查过程体现从现象、验证到最终结论的完整链路，且以 `1. 2. 3.` 有序编号呈现。
 - [ ] 问题核心解释了“为什么发生”。
 - [ ] 一句话总结包含现象、根因和处理方向。
 - [ ] 任务名称采用业务视角，无模块前缀和技术实现细节。
 - [ ] 复现步骤有证据支撑，期望结果与问题现象直接对应。
-- [ ] 输出中没有登录凭证、完整手机号或其他不必要的敏感信息。
+- [ ] 输出中没有登录凭证；完整手机号仅用于当前工单总结，未提交至 Git 或长期保存。
